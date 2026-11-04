@@ -18,11 +18,11 @@ class FlavorConfig {
   static String get appName {
     switch (_flavor) {
       case AppFlavor.dev:
-        return '语言避难所 Dev';
+        return 'MovieShadow Dev';
       case AppFlavor.staging:
-        return '语言避难所 Staging';
+        return 'MovieShadow Staging';
       case AppFlavor.prod:
-        return '语言避难所';
+        return 'MovieShadow';
     }
   }
 
