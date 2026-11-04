@@ -1325,7 +1325,7 @@ class _ParsingStep extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         const Text(
-          '字幕可选。选择字幕文件夹时会按同名规则匹配中英字幕；没有字幕也可以先导入视频，之后在播放器里生成 AI 字幕。',
+          '不需要 AI，也可以直接导入现成字幕。把 .srt 或 .vtt 字幕放在一个文件夹里，在下面选择这个文件夹；应用会按视频文件名自动匹配英文和中文字幕。没有字幕时也可以先导入视频，之后再补充。',
           style: TextStyle(
             fontSize: 15,
             height: 1.5,
@@ -1340,7 +1340,7 @@ class _ParsingStep extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         _ImportPathRow(
-          label: '字幕目录',
+          label: '外挂字幕文件夹',
           value: subtitleFolder ?? '尚未选择字幕文件夹',
           icon: Icons.subtitles_outlined,
           action: FilledButton.icon(
@@ -1365,7 +1365,7 @@ class _ParsingStep extends StatelessWidget {
                   )
                 : const Icon(Icons.folder_open_rounded, size: 18),
             label: Text(
-              selectingSubtitle ? '正在整理字幕...' : '选择字幕文件夹',
+              selectingSubtitle ? '正在读取字幕...' : '选择 SRT / VTT 字幕文件夹',
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
