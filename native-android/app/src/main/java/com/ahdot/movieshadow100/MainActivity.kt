@@ -59,9 +59,12 @@ class MainActivity : ComponentActivity() {
 private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val player = remember { ExoPlayer.Builder(context).build().apply { repeatMode = Player.REPEAT_MODE_OFF } }
+    val playbackStore = remember { PlaybackStore(context) }
     DisposableEffect(player) { onDispose { player.release() } }
 
-    var videoName by remember { mutableStateOf("尚未导入电影") }
+    var videoName by remember { mutableStateOf(playbackStore.videoName()) }
+    var speed by remember { mutableFloatStateOf(1f) }
+    var chineseOffsetText by remember { mutableStateOf("0") }
     var englishName by remember { mutableStateOf("") }
     var chineseName by remember { mutableStateOf("") }
     var englishCues by remember { mutableStateOf<List<SubtitleCue>>(emptyList()) }
@@ -85,6 +88,7 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
         if (uri != null) runCatching {
             context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             videoName = uri.lastPathSegment?.substringAfterLast('/') ?: "本地电影"
+            playbackStore.saveVideo(uri.toString(), videoName)
             player.setMediaItem(MediaItem.fromUri(uri))
             player.prepare()
             player.playWhenReady = false
@@ -93,6 +97,7 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
     }
     val subtitlePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             val raw = context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
                 ?: error("无法读取字幕文件")
             val parsed = SubtitleParser.parseSingleLanguage(raw)
@@ -101,10 +106,12 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
             if (importLanguage == "zh") {
                 chineseCues = parsed
                 chineseName = name
+                playbackStore.saveSubtitle("zh", uri.toString(), name)
                 message = "中文字幕导入成功：${parsed.size} 条"
             } else {
                 englishCues = parsed
                 englishName = name
+                playbackStore.saveSubtitle("en", uri.toString(), name)
                 message = "英文字幕导入成功：${parsed.size} 条"
             }
             cues = when {
@@ -116,8 +123,36 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
     }
 
     LaunchedEffect(player) {
+        // Restore local media references and last playback checkpoint.
+        val savedVideo = playbackStore.videoUri()
+        if (savedVideo != null) runCatching {
+            val uri = Uri.parse(savedVideo)
+            player.setMediaItem(MediaItem.fromUri(uri), playbackStore.positionMs())
+            player.prepare()
+            player.playWhenReady = false
+            message = "已恢复上次电影和播放进度"
+        }.onFailure { message = "上次电影无法访问，请重新导入" }
+        suspend fun restoreSubtitle(language: String): List<SubtitleCue> {
+            val saved = playbackStore.subtitleUri(language) ?: return emptyList()
+            return runCatching {
+                val uri = Uri.parse(saved)
+                val raw = context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    ?: error("无法读取字幕")
+                SubtitleParser.parseSingleLanguage(raw)
+            }.getOrElse { emptyList() }
+        }
+        englishCues = restoreSubtitle("en")
+        chineseCues = restoreSubtitle("zh")
+        englishName = playbackStore.subtitleName("en")
+        chineseName = playbackStore.subtitleName("zh")
+        cues = when {
+            englishCues.isNotEmpty() && chineseCues.isNotEmpty() -> SubtitleMerger.merge(englishCues, chineseCues)
+            englishCues.isNotEmpty() -> englishCues
+            else -> chineseCues.map { SubtitleCue(it.startMs, it.endMs, "", it.english) }
+        }
         while (isActive) {
             position = player.currentPosition.coerceAtLeast(0L)
+            if (position > 0L && position % 5000L < 150L) playbackStore.savePosition(position)
             val a = loopA
             val b = loopB
             if (loopEnabled && a != null && b != null && b > a && position >= b) {
@@ -212,7 +247,7 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
                             FilterChip(listVisible, { listVisible = !listVisible }, label = { Text(if (listVisible) "收起列表" else "句子列表") })
                             TextButton(onClick = {
                                 englishCues = emptyList(); chineseCues = emptyList(); cues = emptyList()
-                                englishName = ""; chineseName = ""; message = "字幕已清除"
+                                englishName = ""; chineseName = ""; playbackStore.clearSubtitles(); message = "字幕已清除"
                             }) { Text("清除") }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -232,6 +267,32 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
                                 }
                             }, label = { Text("单句循环") })
                             TextButton(onClick = { loopA = null; loopB = null; loopEnabled = false; sentenceRepeatCue = null }) { Text("清除") }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("倍速", color = Color.Gray, fontSize = 12.sp)
+                            listOf(0.75f, 1f, 1.25f, 1.5f, 2f).forEach { rate ->
+                                FilterChip(selected = speed == rate, onClick = {
+                                    speed = rate
+                                    player.setPlaybackSpeed(rate)
+                                }, label = { Text(if (rate == 1f) "1.0×" else "${rate}×") })
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(chineseOffsetText, { chineseOffsetText = it.filter { c -> c == '-' || c.isDigit() }.take(7) },
+                                label = { Text("中文偏移 ms") }, modifier = Modifier.width(140.dp), singleLine = true)
+                            TextButton(onClick = {
+                                val offset = chineseOffsetText.toLongOrNull() ?: 0L
+                                val shifted = chineseCues.map { cue ->
+                                    val start = (cue.startMs + offset).coerceAtLeast(0L)
+                                    cue.copy(startMs = start, endMs = (cue.endMs + offset).coerceAtLeast(start + 1L))
+                                }
+                                cues = when {
+                                    englishCues.isNotEmpty() && shifted.isNotEmpty() -> SubtitleMerger.merge(englishCues, shifted)
+                                    englishCues.isNotEmpty() -> englishCues
+                                    else -> shifted.map { SubtitleCue(it.startMs, it.endMs, "", it.english) }
+                                }
+                                message = "已应用中文字幕偏移：${offset} ms"
+                            }) { Text("应用偏移") }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             OutlinedTextField(timerText, { timerText = it.filter(Char::isDigit).take(3) },
