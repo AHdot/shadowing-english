@@ -89,6 +89,7 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
             context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             videoName = uri.lastPathSegment?.substringAfterLast('/') ?: "本地电影"
             playbackStore.saveVideo(uri.toString(), videoName)
+            playbackStore.savePosition(0L)
             player.setMediaItem(MediaItem.fromUri(uri))
             player.prepare()
             player.playWhenReady = false
@@ -150,9 +151,13 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
             englishCues.isNotEmpty() -> englishCues
             else -> chineseCues.map { SubtitleCue(it.startMs, it.endMs, "", it.english) }
         }
+        var lastCheckpoint = playbackStore.positionMs()
         while (isActive) {
             position = player.currentPosition.coerceAtLeast(0L)
-            if (position > 0L && position % 5000L < 150L) playbackStore.savePosition(position)
+            if (kotlin.math.abs(position - lastCheckpoint) >= 3000L) {
+                playbackStore.savePosition(position)
+                lastCheckpoint = position
+            }
             val a = loopA
             val b = loopB
             if (loopEnabled && a != null && b != null && b > a && position >= b) {
