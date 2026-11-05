@@ -62,6 +62,7 @@ class PlayerVideoPanel extends StatefulWidget {
     this.onCollectWordAtTime,
     this.onFavoriteWord,
     this.episodeId,
+    this.videoTitle,
     this.onPronounce,
     this.onToggleEpisodePanel,
     this.isEpisodePanelOpen = false,
@@ -130,6 +131,7 @@ class PlayerVideoPanel extends StatefulWidget {
   final void Function(String word, String time)? onCollectWordAtTime;
   final ValueChanged<String>? onFavoriteWord;
   final String? episodeId;
+  final String? videoTitle;
   final VoidCallback? onPronounce;
   final VoidCallback? onToggleEpisodePanel;
   final bool isEpisodePanelOpen;
@@ -641,7 +643,10 @@ class _PlayerVideoPanelState extends State<PlayerVideoPanel> {
                           ignoring: !_showControls,
                           child: _SceneHeader(
                             compact: tinyControls,
-                            title: '学习小剧场',
+                            title: widget.isFullscreen &&
+                                    (widget.videoTitle?.isNotEmpty ?? false)
+                                ? widget.videoTitle!
+                                : '学习小剧场',
                             subtitle:
                                 '第 ${widget.activeIndex + 1} 句 / ${widget.totalLines} 句',
                             fullscreen: widget.isFullscreen,
@@ -1161,8 +1166,8 @@ class _PlayerVideoPanelState extends State<PlayerVideoPanel> {
                                     ),
                                   if (widget.onOpenPlaybackTools != null)
                                     _RoundActionButton(
-                                      icon: Icons.more_time_rounded,
-                                      tooltip: '定时与 A-B 循环',
+                                      icon: Icons.more_vert_rounded,
+                                      tooltip: '更多功能',
                                       compact: compactControls,
                                       tiny: tinyControls,
                                       fullscreen: widget.isFullscreen,
