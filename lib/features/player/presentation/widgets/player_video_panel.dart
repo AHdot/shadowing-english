@@ -54,6 +54,7 @@ class PlayerVideoPanel extends StatefulWidget {
     required this.onToggleMuted,
     required this.onVolumeChanged,
     required this.onToggleFullscreen,
+    this.onOpenPlaybackTools,
     this.onSubtitleLookupOpen,
     this.onAssessVisibleLine,
     this.assessmentUnavailableReason,
@@ -121,6 +122,7 @@ class PlayerVideoPanel extends StatefulWidget {
   final VoidCallback onToggleMuted;
   final ValueChanged<double> onVolumeChanged;
   final VoidCallback onToggleFullscreen;
+  final VoidCallback? onOpenPlaybackTools;
   final VoidCallback? onSubtitleLookupOpen;
   final VoidCallback? onAssessVisibleLine;
   final String? assessmentUnavailableReason;
@@ -1156,6 +1158,17 @@ class _PlayerVideoPanelState extends State<PlayerVideoPanel> {
                                           : () => _handleControlTap(
                                               widget.onToggleEpisodePanel!,
                                             ),
+                                    ),
+                                  if (widget.onOpenPlaybackTools != null)
+                                    _RoundActionButton(
+                                      icon: Icons.more_time_rounded,
+                                      tooltip: '定时与 A-B 循环',
+                                      compact: compactControls,
+                                      tiny: tinyControls,
+                                      fullscreen: widget.isFullscreen,
+                                      onPressed: () => _handleControlTap(
+                                        widget.onOpenPlaybackTools!,
+                                      ),
                                     ),
                                   _RoundActionButton(
                                     icon: widget.isFullscreen
