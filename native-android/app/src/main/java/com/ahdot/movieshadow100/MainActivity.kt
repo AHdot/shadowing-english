@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.*
@@ -180,6 +181,10 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
 
     val activeIndex = cues.indexOfLast { position >= it.startMs && position <= it.endMs }
     val activeCue = cues.getOrNull(activeIndex)
+    val sentenceListState = rememberLazyListState()
+    LaunchedEffect(activeIndex, listVisible) {
+        if (listVisible && activeIndex >= 0) sentenceListState.animateScrollToItem(activeIndex)
+    }
     BackHandler(enabled = fullscreen) {
         fullscreen = false
         onFullscreen(false)
@@ -328,7 +333,7 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
                                 Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                                     Text("分别导入英文和中文字幕，自动生成逐句列表", color = Color.Gray)
                                 }
-                            } else LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
+                            } else LazyColumn(state = sentenceListState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                                 itemsIndexed(cues) { index, cue ->
                                     val selected = index == activeIndex
                                     Column(
