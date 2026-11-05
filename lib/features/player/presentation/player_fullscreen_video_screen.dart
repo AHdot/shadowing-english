@@ -60,6 +60,7 @@ class PlayerFullscreenVideoScreen extends StatefulWidget {
     required this.onExit,
     this.onOpenPlaybackTools,
     this.videoSurface,
+    this.videoTitle,
     this.videoAspectRatio = 16 / 9,
     this.videoReady = false,
     this.videoLoading = false,
@@ -112,6 +113,7 @@ class PlayerFullscreenVideoScreen extends StatefulWidget {
   final VoidCallback onExit;
   final VoidCallback? onOpenPlaybackTools;
   final Widget? videoSurface;
+  final String? videoTitle;
   final double videoAspectRatio;
   final bool videoReady;
   final bool videoLoading;
@@ -327,6 +329,7 @@ class _PlayerFullscreenVideoScreenState
                 }
               },
               videoSurface: widget.videoSurface,
+              videoTitle: widget.videoTitle,
               videoAspectRatio: widget.videoAspectRatio,
               videoReady: widget.videoReady,
               videoLoading: widget.videoLoading,
