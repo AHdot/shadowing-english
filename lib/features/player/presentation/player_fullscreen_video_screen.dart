@@ -146,9 +146,7 @@ class _PlayerFullscreenVideoScreenState
     _refreshTimer = Timer.periodic(widget.playerState.playbackTickDuration, (
       _,
     ) {
-      if (mounted && widget.playerState.isPlaying) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     });
   }
 
