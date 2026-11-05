@@ -97,6 +97,7 @@ class PadLandscapePlayerScreenState
   Duration _lastTrackedVideoPosition = Duration.zero;
   bool _didAutoOpenFullscreen = false;
   bool _isFullscreenOpen = false;
+  Timer? _sleepTimer;
   bool _pronunciationDialogActive = false;
   bool _generatingAiSubtitles = false;
   AsrSubtitleCancellationToken? _aiSubtitleCancellationToken;
@@ -142,6 +143,7 @@ class PadLandscapePlayerScreenState
   @override
   void dispose() {
     _aiSubtitleCancellationToken?.cancel();
+    _sleepTimer?.cancel();
     PlayerSystemMediaControls.unbind();
     unawaited(_disposeVideo().whenComplete(_releaseGraphicsCache));
     _transcriptReaderSession.dispose();
@@ -920,6 +922,7 @@ class PadLandscapePlayerScreenState
                                 course?.episodes ??
                                     const <LibraryEpisodeItem>[],
                               ),
+                                onOpenPlaybackTools: _openPlaybackTools,
                               videoSurface: _isFullscreenOpen
                                   ? null
                                   : _buildVideoSurface(),
@@ -1186,6 +1189,143 @@ class PadLandscapePlayerScreenState
     if (state.isLooping && state.hasLines) {
       _seekToActiveLine();
     }
+  }
+
+  Future<void> _openPlaybackTools() async {
+    final String? action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('将当前位置设为 A 点'),
+              subtitle: Text('A：${_formatPlaybackTime(state.abLoopStartMs)}'),
+              onTap: () => Navigator.of(sheetContext).pop('set-a'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag_rounded),
+              title: const Text('将当前位置设为 B 点'),
+              subtitle: Text(
+                state.abLoopStartMs == null
+                    ? '请先设置 A 点'
+                    : 'A：${_formatPlaybackTime(state.abLoopStartMs)} · B：${_formatPlaybackTime(state.abLoopEndMs)}',
+              ),
+              enabled: state.abLoopStartMs != null,
+              onTap: () => Navigator.of(sheetContext).pop('set-b'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.repeat_rounded),
+              title: const Text('清除 A-B 循环'),
+              subtitle: Text(state.hasAbLoop ? '当前 A-B 循环已设置' : '尚未设置循环区间'),
+              enabled: state.abLoopStartMs != null || state.abLoopEndMs != null,
+              onTap: () => Navigator.of(sheetContext).pop('clear-ab'),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.timer_outlined),
+              title: const Text('定时停止'),
+              subtitle: Text(_sleepTimer == null ? '未设置' : '定时已启动'),
+              onTap: () => Navigator.of(sheetContext).pop('timer'),
+            ),
+            if (_sleepTimer != null)
+              ListTile(
+                leading: const Icon(Icons.timer_off_outlined),
+                title: const Text('取消定时停止'),
+                onTap: () => Navigator.of(sheetContext).pop('cancel-timer'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    final int nowMs = _currentVideoPosition().inMilliseconds;
+    switch (action) {
+      case 'set-a':
+        setState(() => state.setAbLoopStart(nowMs));
+        _showMessage('已设置 A 点：${_formatPlaybackTime(nowMs)}，请继续播放到 B 点');
+        break;
+      case 'set-b':
+        if (!state.setAbLoopEnd(nowMs)) {
+          _showMessage('B 点必须晚于 A 点，请重新选择');
+          break;
+        }
+        setState(() {});
+        _showMessage('A-B 循环已开启：${_formatPlaybackTime(state.abLoopStartMs)} → ${_formatPlaybackTime(state.abLoopEndMs)}');
+        break;
+      case 'clear-ab':
+        setState(state.clearAbLoop);
+        _showMessage('已清除 A-B 循环');
+        break;
+      case 'timer':
+        await _configureSleepTimer();
+        break;
+      case 'cancel-timer':
+        _sleepTimer?.cancel();
+        setState(() => _sleepTimer = null);
+        _showMessage('已取消定时停止');
+        break;
+    }
+  }
+
+  Future<void> _configureSleepTimer() async {
+    int selectedMinutes = 30;
+    final int? minutes = await showDialog<int>(
+      context: context,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
+          title: const Text('定时停止'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text('到达设定时间后，播放器会自动暂停。'),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                value: selectedMinutes,
+                decoration: const InputDecoration(labelText: '停止时间'),
+                items: <int>[5, 10, 15, 20, 30, 45, 60, 90, 120]
+                    .map((int value) => DropdownMenuItem<int>(
+                          value: value,
+                          child: Text(value >= 60 ? '${value ~/ 60} 小时${value % 60 == 0 ? '' : ' ${value % 60} 分钟'}' : '$value 分钟'),
+                        ))
+                    .toList(growable: false),
+                onChanged: (int? value) {
+                  if (value != null) setDialogState(() => selectedMinutes = value);
+                },
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('取消')),
+            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(selectedMinutes), child: const Text('开始计时')),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || minutes == null) return;
+    _sleepTimer?.cancel();
+    _sleepTimer = Timer(Duration(minutes: minutes), () {
+      if (!mounted) return;
+      setState(() {
+        state.isPlaying = false;
+        _sleepTimer = null;
+      });
+      unawaited(_videoPlayer?.pause());
+      _showMessage('定时结束，播放已暂停');
+    });
+    _showMessage('已设置 $minutes 分钟后停止播放');
+  }
+
+  String _formatPlaybackTime(int? milliseconds) {
+    if (milliseconds == null) return '未设置';
+    final int totalSeconds = milliseconds ~/ 1000;
+    final String hours = (totalSeconds ~/ 3600).toString().padLeft(2, '0');
+    final String minutes = ((totalSeconds % 3600) ~/ 60).toString().padLeft(2, '0');
+    final String seconds = (totalSeconds % 60).toString().padLeft(2, '0');
+    return totalSeconds >= 3600 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
   }
 
   void _handleToggleMuted() {
@@ -1707,6 +1847,7 @@ class PadLandscapePlayerScreenState
             videoSource: _videoAsset,
             onAssessTarget: _openPronunciationAssessment,
             onExit: () => Navigator.of(context).maybePop(),
+            onOpenPlaybackTools: _openPlaybackTools,
             videoSurface: fullscreenVideoSurface,
             videoAspectRatio: _videoAspectRatio,
             videoReady: _videoReady,
