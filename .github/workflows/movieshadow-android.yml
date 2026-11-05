@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: movieshadow-android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -39,6 +43,9 @@ jobs:
 
       - name: Generate Dart code
         run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Run focused playback tests
+        run: flutter test test/features/player/player_ab_loop_test.dart
 
       - name: Build Android APK
         run: flutter build apk --release --flavor prod
