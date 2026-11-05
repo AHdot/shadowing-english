@@ -1,7 +1,9 @@
 package com.ahdot.movieshadow100
 
 import android.content.Context
-import java.time.LocalDate
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Local learning-time statistics.
@@ -12,10 +14,10 @@ class LearningStatsStore(context: Context) {
     private val prefs = context.getSharedPreferences("movie_shadow_learning_stats", Context.MODE_PRIVATE)
 
     @Synchronized
-    fun recordOneMinute(date: LocalDate = LocalDate.now()) {
+    fun recordOneMinute(dateKey: String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())) {
         val total = (prefs.getInt(KEY_TOTAL_MINUTES, 0) + 1).coerceAtLeast(0)
         val days = prefs.getStringSet(KEY_STUDY_DAYS, emptySet()).orEmpty().toMutableSet()
-        days += date.toString()
+        days += dateKey
         prefs.edit()
             .putInt(KEY_TOTAL_MINUTES, total)
             .putStringSet(KEY_STUDY_DAYS, days)
