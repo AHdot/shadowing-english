@@ -3,6 +3,7 @@ package com.ahdot.movieshadow100
 import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -61,6 +62,9 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val player = remember { ExoPlayer.Builder(context).build().apply { repeatMode = Player.REPEAT_MODE_OFF } }
     val playbackStore = remember { PlaybackStore(context) }
+    val learningStatsStore = remember { LearningStatsStore(context) }
+    var totalStudyMinutes by remember { mutableIntStateOf(learningStatsStore.totalMinutes()) }
+    var studyDays by remember { mutableIntStateOf(learningStatsStore.studyDays()) }
     DisposableEffect(player) { onDispose { playbackStore.savePosition(player.currentPosition); player.release() } }
 
     var videoName by remember { mutableStateOf(playbackStore.videoName()) }
@@ -153,7 +157,18 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
             else -> chineseCues.map { SubtitleCue(it.startMs, it.endMs, "", it.english) }
         }
         var lastCheckpoint = playbackStore.positionMs()
+        var lastStudyMinuteAt = SystemClock.elapsedRealtime()
         while (isActive) {
+            val nowElapsed = SystemClock.elapsedRealtime()
+            if (player.isPlaying && nowElapsed - lastStudyMinuteAt >= 60_000L) {
+                val wholeMinutes = ((nowElapsed - lastStudyMinuteAt) / 60_000L).toInt()
+                repeat(wholeMinutes) { learningStatsStore.recordOneMinute() }
+                lastStudyMinuteAt += wholeMinutes * 60_000L
+                totalStudyMinutes = learningStatsStore.totalMinutes()
+                studyDays = learningStatsStore.studyDays()
+            } else if (!player.isPlaying) {
+                lastStudyMinuteAt = nowElapsed
+            }
             position = player.currentPosition.coerceAtLeast(0L)
             if (kotlin.math.abs(position - lastCheckpoint) >= 3000L) {
                 playbackStore.savePosition(position)
@@ -258,6 +273,8 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
                             }
                             TextButton(onClick = { fullscreen = true; onFullscreen(true) }) { Text("横屏全屏") }
                         }
+                        Text("累计学习 ${totalStudyMinutes / 60} 小时 ${totalStudyMinutes % 60} 分钟  ·  已学习 ${studyDays} 天",
+                            color = Color(0xFF8AB4F8), fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp, bottom = 5.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                             FilterChip(showEnglish, { showEnglish = !showEnglish }, label = { Text("英文") })
                             FilterChip(showChinese, { showChinese = !showChinese }, label = { Text("中文") })
