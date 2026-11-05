@@ -60,7 +60,7 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val player = remember { ExoPlayer.Builder(context).build().apply { repeatMode = Player.REPEAT_MODE_OFF } }
     val playbackStore = remember { PlaybackStore(context) }
-    DisposableEffect(player) { onDispose { player.release() } }
+    DisposableEffect(player) { onDispose { playbackStore.savePosition(player.currentPosition); player.release() } }
 
     var videoName by remember { mutableStateOf(playbackStore.videoName()) }
     var speed by remember { mutableFloatStateOf(1f) }
@@ -230,6 +230,13 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
                                 Text(activeCue.chinese!!, color = Color(0xFFE8E8E8), fontSize = 14.sp)
                         }
                     }
+                    if (fullscreen) {
+                        TextButton(
+                            onClick = { fullscreen = false; onFullscreen(false) },
+                            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
+                                .background(Color(0x99000000), shape = MaterialTheme.shapes.medium)
+                        ) { Text("退出全屏", color = Color.White) }
+                    }
                 }
                 if (!fullscreen) {
                     Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
@@ -334,12 +341,6 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
                             }
                         } else Spacer(Modifier.weight(1f))
                         Text(message, color = Color(0xFF8AB4F8), fontSize = 11.sp, modifier = Modifier.padding(vertical = 4.dp))
-                    }
-                } else {
-                    Row(Modifier.fillMaxWidth().background(Color(0xFF101114).copy(alpha = .95f)).padding(6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(videoName, color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { fullscreen = false; onFullscreen(false) }) { Text("退出全屏") }
                     }
                 }
             }
