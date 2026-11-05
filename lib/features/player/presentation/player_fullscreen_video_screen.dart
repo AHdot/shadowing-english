@@ -58,6 +58,7 @@ class PlayerFullscreenVideoScreen extends StatefulWidget {
     this.videoSource,
     this.onAssessTarget = _ignoreTarget,
     required this.onExit,
+    this.onOpenPlaybackTools,
     this.videoSurface,
     this.videoAspectRatio = 16 / 9,
     this.videoReady = false,
@@ -109,6 +110,7 @@ class PlayerFullscreenVideoScreen extends StatefulWidget {
   final String? videoSource;
   final ValueChanged<PronunciationAssessmentTarget> onAssessTarget;
   final VoidCallback onExit;
+  final VoidCallback? onOpenPlaybackTools;
   final Widget? videoSurface;
   final double videoAspectRatio;
   final bool videoReady;
@@ -315,6 +317,7 @@ class _PlayerFullscreenVideoScreenState
                   : null,
               isSubtitlePanelOpen: _showSubtitlePanel,
               onToggleFullscreen: widget.onExit,
+              onOpenPlaybackTools: widget.onOpenPlaybackTools,
               isFullscreen: true,
               sceneHeaderLeadingInset: 48,
               sceneHeaderTopInset: isMacOS ? -4 : null,
