@@ -217,9 +217,7 @@ class PlayerMockState {
   bool setAbLoopStart(int milliseconds) {
     if (milliseconds < 0) return false;
     abLoopStartMs = milliseconds;
-    if (abLoopEndMs != null && abLoopEndMs! <= milliseconds) {
-      abLoopEndMs = null;
-    }
+    abLoopEndMs = null;
     isLooping = false;
     return true;
   }
