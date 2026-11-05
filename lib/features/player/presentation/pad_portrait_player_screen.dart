@@ -851,6 +851,7 @@ class _PadPortraitPlayerScreenState
                       ),
                       child: PlayerVideoPanel(
                         episodeId: widget.episodeId,
+                        videoTitle: _videoAsset?.split(RegExp(r'[\\/]')).last,
                         line: activeLine,
                         isPlaying: state.isPlaying,
                         speed: state.speed,
@@ -1801,6 +1802,7 @@ class _PadPortraitPlayerScreenState
             onExit: () => Navigator.of(context).maybePop(),
             onOpenPlaybackTools: _openPlaybackTools,
             videoSurface: fullscreenVideoSurface,
+            videoTitle: _videoAsset?.split(RegExp(r'[\\/]')).last,
             videoAspectRatio: _videoAspectRatio,
             videoReady: _videoReady,
             videoLoading: _videoLoading,
