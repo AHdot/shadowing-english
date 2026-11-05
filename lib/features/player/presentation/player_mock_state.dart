@@ -87,6 +87,8 @@ class PlayerMockState {
   String speed = '0.8×';
   bool isPlaying = false;
   bool isLooping = false;
+  int? abLoopStartMs;
+  int? abLoopEndMs;
   bool isShadowing = false;
   String subtitleMode = '双语';
 
@@ -204,6 +206,35 @@ class PlayerMockState {
 
   void toggleLoop() {
     isLooping = !isLooping;
+    if (isLooping) clearAbLoop();
+  }
+
+  bool get hasAbLoop =>
+      abLoopStartMs != null &&
+      abLoopEndMs != null &&
+      abLoopEndMs! > abLoopStartMs!;
+
+  bool setAbLoopStart(int milliseconds) {
+    if (milliseconds < 0) return false;
+    abLoopStartMs = milliseconds;
+    if (abLoopEndMs != null && abLoopEndMs! <= milliseconds) {
+      abLoopEndMs = null;
+    }
+    isLooping = false;
+    return true;
+  }
+
+  bool setAbLoopEnd(int milliseconds) {
+    final int? start = abLoopStartMs;
+    if (start == null || milliseconds <= start) return false;
+    abLoopEndMs = milliseconds;
+    isLooping = false;
+    return true;
+  }
+
+  void clearAbLoop() {
+    abLoopStartMs = null;
+    abLoopEndMs = null;
   }
 
   bool toggleLineLoopAt(int index) {
@@ -341,6 +372,14 @@ class PlayerMockState {
   }
 
   bool restartLoopAtTimestamp(int milliseconds) {
+    if (hasAbLoop && milliseconds >= abLoopEndMs!) {
+      positionMs = abLoopStartMs!;
+      if (hasLines) {
+        activeLineIndex = resolveLineIndexForTimestamp(positionMs);
+        _syncCurrentWordIndex(forceLineStart: true);
+      }
+      return true;
+    }
     if (!isLooping ||
         !hasLines ||
         milliseconds < videoEndMsForLine(activeLineIndex)) {
