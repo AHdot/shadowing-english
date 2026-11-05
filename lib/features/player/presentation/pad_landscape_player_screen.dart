@@ -1241,7 +1241,9 @@ class PadLandscapePlayerScreenState
       ),
     );
     if (!mounted || action == null) return;
-    final int nowMs = _currentVideoPosition().inMilliseconds;
+    final int nowMs = _videoReady
+        ? _videoPosition.inMilliseconds
+        : state.positionMs;
     switch (action) {
       case 'set-a':
         setState(() => state.setAbLoopStart(nowMs));
