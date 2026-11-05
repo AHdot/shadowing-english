@@ -1316,7 +1316,7 @@ class _ParsingStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          '选择字幕文件夹并开始解析',
+          '添加字幕（可选）',
           style: TextStyle(
             fontSize: compact ? 24 : 28,
             fontWeight: FontWeight.w900,
@@ -1340,7 +1340,7 @@ class _ParsingStep extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         _ImportPathRow(
-          label: '外挂字幕文件夹',
+          label: '字幕文件夹（可选）',
           value: subtitleFolder ?? '尚未选择字幕文件夹',
           icon: Icons.subtitles_outlined,
           action: FilledButton.icon(
@@ -1365,7 +1365,7 @@ class _ParsingStep extends StatelessWidget {
                   )
                 : const Icon(Icons.folder_open_rounded, size: 18),
             label: Text(
-              selectingSubtitle ? '正在读取字幕...' : '选择 SRT / VTT 字幕文件夹',
+              selectingSubtitle ? '正在读取字幕...' : '选择字幕文件夹（SRT / VTT）',
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
@@ -1419,7 +1419,7 @@ class _ParsingStep extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       subtitleFolder == null
-                          ? '先补充字幕文件夹，再开始扫描匹配。'
+                          ? '没有字幕也可以继续：直接点击下方“开始解析”，以后还可以补充字幕。'
                           : '系统会按文件名自动对齐视频、中英字幕和剧集结果。',
                       style: const TextStyle(
                         fontSize: 13,
