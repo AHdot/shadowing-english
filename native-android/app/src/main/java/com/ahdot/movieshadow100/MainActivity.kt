@@ -75,6 +75,7 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
     var loopA by remember { mutableStateOf<Long?>(null) }
     var loopB by remember { mutableStateOf<Long?>(null) }
     var loopEnabled by remember { mutableStateOf(false) }
+    var sentenceRepeatCue by remember { mutableStateOf<SubtitleCue?>(null) }
     var timerText by remember { mutableStateOf("30") }
     var timerEnd by remember { mutableStateOf<Long?>(null) }
     var position by remember { mutableLongStateOf(0L) }
@@ -120,8 +121,12 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
             val a = loopA
             val b = loopB
             if (loopEnabled && a != null && b != null && b > a && position >= b) {
+                // Preserve pause state: seeking to A must not unexpectedly resume playback.
                 player.seekTo(a)
-                if (!player.isPlaying) player.play()
+            }
+            val repeatCue = sentenceRepeatCue
+            if (repeatCue != null && player.isPlaying && position >= repeatCue.endMs) {
+                player.seekTo(repeatCue.startMs)
             }
             val end = timerEnd
             if (end != null && System.currentTimeMillis() >= end) {
@@ -215,9 +220,18 @@ private fun MovieShadowScreen(onFullscreen: (Boolean) -> Unit) {
                             TextButton(onClick = { loopB = player.currentPosition; message = "B 点已设置" }) { Text("设 B") }
                             FilterChip(loopEnabled, {
                                 val valid = loopA != null && loopB != null && loopB!! > loopA!!
-                                if (valid) loopEnabled = !loopEnabled else message = "请先设置有效的 A、B 点"
+                                if (valid) { loopEnabled = !loopEnabled; if (loopEnabled) sentenceRepeatCue = null }
+                                else message = "请先设置有效的 A、B 点"
                             }, label = { Text(if (loopEnabled) "循环中" else "A-B 循环") })
-                            TextButton(onClick = { loopA = null; loopB = null; loopEnabled = false }) { Text("清除") }
+                            FilterChip(sentenceRepeatCue != null, {
+                                if (sentenceRepeatCue != null) sentenceRepeatCue = null
+                                else {
+                                    val cue = cues.lastOrNull { position >= it.startMs && position <= it.endMs }
+                                    if (cue != null) { sentenceRepeatCue = cue; loopEnabled = false; message = "已开启当前句循环" }
+                                    else message = "请先播放到一条字幕句子上"
+                                }
+                            }, label = { Text("单句循环") })
+                            TextButton(onClick = { loopA = null; loopB = null; loopEnabled = false; sentenceRepeatCue = null }) { Text("清除") }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             OutlinedTextField(timerText, { timerText = it.filter(Char::isDigit).take(3) },
